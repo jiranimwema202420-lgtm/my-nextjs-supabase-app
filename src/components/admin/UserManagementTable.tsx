@@ -19,7 +19,7 @@ export function UserManagementTable({ initialUsers }: { initialUsers: Profile[] 
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  const handleRoleChange = async (userId: string, newRole: string) {
+  const handleRoleChange = async (userId: string, newRole: string) => {
     setFeedback(null);
     startTransition(async () => {
       const result = await updateUserRole(userId, newRole);
@@ -32,7 +32,7 @@ export function UserManagementTable({ initialUsers }: { initialUsers: Profile[] 
     });
   };
 
-  const handleToggleActive = async (userId: string, currentStatus: boolean) {
+  const handleToggleActive = async (userId: string, currentStatus: boolean) => {
     setFeedback(null);
     startTransition(async () => {
       const result = await toggleUserActive(userId, !currentStatus);
