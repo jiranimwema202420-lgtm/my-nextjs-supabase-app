@@ -1,74 +1,51 @@
 ﻿import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  let next = requestUrl.searchParams.get("next") ?? "/player";
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+  const next = searchParams.get("next") ?? "/dashboard";
 
-  if (!next.startsWith("/") || next.startsWith("//")) {
-    next = "/player";
-  }
-
-  const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://igame-fintech-lovat.vercel.app";
-
-  if (!code) {
-    return NextResponse.redirect(`${canonicalUrl}/login?error=Missing_code_in_url`);
-  }
-
-  const response = NextResponse.redirect(`${canonicalUrl}${next}`);
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll(); },
-        setAll(cookiesToSet, headers) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-          Object.entries(headers).forEach(([key, value]) => {
-            response.headers.set(key, value);
-          });
+  if (code) {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options),
+              );
+            } catch {
+              // Ignored when invoked from Server Components handled by middleware
+            }
+          },
         },
       },
+    );
+
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      const forwardedHost = request.headers.get("x-forwarded-host");
+      const isLocalEnv = process.env.NODE_ENV === "development";
+
+      if (isLocalEnv) {
+        return NextResponse.redirect(`${origin}${next}`);
+      } else if (forwardedHost) {
+        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+      } else {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
     }
-  );
-
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error) {
-    console.error("[Auth Callback] Code exchange failed:", error.message);
-    return NextResponse.redirect(`${canonicalUrl}/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  // 🌟 NEW: Dynamically determine the correct dashboard based on the user's role
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    const role = profile?.role || 'player';
-    const rolePaths: Record<string, string> = {
-      super_admin: '/super-admin',
-      admin: '/admin',
-      manager: '/manager',
-      staff: '/staff',
-      compliance: '/compliance',
-      analyst: '/analyst',
-      player: '/player',
-    };
-    
-    // Override the 'next' parameter with the role-appropriate path
-    next = rolePaths[role] || '/player';
-  }
-
-  console.log("[Auth Callback] Code exchange successful, redirecting to:", next);
-  
-  // Update the response redirect URL with the correct role-based path
-  return NextResponse.redirect(`${canonicalUrl}${next}`);
+  // Redirect to login if OAuth code exchange fails
+  return NextResponse.redirect(`${origin}/login?error=auth_code_error`);
 }
