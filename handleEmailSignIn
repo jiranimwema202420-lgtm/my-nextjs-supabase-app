@@ -1,0 +1,53 @@
+const handleEmailSignIn = async (e: FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+
+  if (!captchaToken) {
+    setError("Please complete the security check.");
+    setLoading(false);
+    return;
+  }
+
+  try {
+    // 🛡️ STEP 1: Verify the captcha on the server FIRST
+    const verifyResult = await verifyTurnstileToken(captchaToken);
+
+    if (!verifyResult.success) {
+      throw new Error(verifyResult.error || "Security check failed.");
+    }
+
+    // 🛡️ STEP 2: If the server says the captcha is valid, proceed to Supabase
+    const { data, error: signInError } = await supabase.auth.signInWithPassword(
+      {
+        email,
+        password,
+        options: { captchaToken }, // Pass it to Supabase as well for their internal checks
+      },
+    );
+
+    if (signInError) throw signInError;
+
+    const userId = data.user?.id;
+    if (!userId) throw new Error("Unable to determine the signed-in user.");
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) throw new Error("Unable to determine your account role.");
+
+    const role = (profile?.role as AppRole) ?? "player";
+    const destination = ROLE_ROUTES[role] ?? ROLE_ROUTES.player;
+
+    router.push(destination);
+    router.refresh();
+  } catch (err: any) {
+    setError(err?.message || "An unexpected error occurred.");
+    setCaptchaToken(null); // Reset captcha so they have to solve it again
+  } finally {
+    setLoading(false);
+  }
+};

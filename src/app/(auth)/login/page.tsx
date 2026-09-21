@@ -1,5 +1,6 @@
 "use client";
 
+import { verifyTurnstileToken } from "@/lib/actions/auth-actions";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
