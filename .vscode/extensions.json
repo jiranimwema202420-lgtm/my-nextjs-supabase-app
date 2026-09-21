@@ -1,7 +1,10 @@
-{
+﻿{
   "recommendations": [
     "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
     "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode"
+    "supabase.supabase",
+    "formulahendry.auto-rename-tag",
+    "streetsidesoftware.code-spell-checker"
   ]
 }
