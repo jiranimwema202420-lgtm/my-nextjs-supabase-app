@@ -1,12 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
-import { requirePermissionOrRedirect } from "@/lib/rbac/permission-guard";
-import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 export default async function SettingsPage() {
-  await requirePermissionOrRedirect(PERMISSIONS.SETTINGS_VIEW, "/player");
-
+  // Note: Role-based access is already enforced by middleware.ts.
+  // We only need to fetch the user data here.
+  
   const supabase = await createClient();
 
   const {
