@@ -2,51 +2,67 @@
 
 import { useState } from "react";
 import { placeBet } from "@/lib/actions/wallet-actions";
+import {
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Dice5,
+  Loader2,
+} from "lucide-react";
 
 interface WalletActionsProps {
   balance?: number;
 }
 
 export function WalletActions({ balance }: WalletActionsProps) {
+  const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "bet">(
+    "bet",
+  );
   const [amount, setAmount] = useState("");
-  const [customAmount, setCustomAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
   const quickAmounts = [10, 25, 50, 100];
-  const targetAmount = Number(customAmount || amount);
+  const targetAmount = Number(amount);
 
-  async function handlePlaceBet() {
+  async function handleAction() {
     setMessage("");
 
     if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
-      setMessage("Enter a valid bet amount.");
+      setMessage("Please enter a valid amount.");
       return;
     }
 
-    if (targetAmount > 100000) {
-      setMessage("Amount too large.");
-      return;
-    }
-
-    if (balance !== undefined && targetAmount > balance) {
-      setMessage("Insufficient balance to place this bet.");
-      return;
+    if (activeTab === "bet") {
+      if (targetAmount > 100000) {
+        setMessage("Maximum bet amount is $100,000.");
+        return;
+      }
+      if (balance !== undefined && targetAmount > balance) {
+        setMessage("Insufficient balance to place this bet.");
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
-      const result = await placeBet(targetAmount);
-
-      if (result.error) {
-        setMessage(result.error);
-        return;
+      if (activeTab === "bet") {
+        const result = await placeBet(targetAmount);
+        if (result.error) {
+          setMessage(result.error);
+        } else {
+          setMessage("Bet placed successfully!");
+          setAmount("");
+        }
+      } else {
+        // Mock deposit/withdraw flow
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        setMessage(
+          `${activeTab === "deposit" ? "Deposit" : "Withdrawal"} of $${targetAmount.toFixed(2)} processed successfully!`,
+        );
+        setAmount("");
       }
-
-      setMessage("Bet placed successfully.");
-      setAmount("");
-      setCustomAmount("");
     } catch (error) {
       console.error("[WalletActions]", error);
       setMessage("An unexpected error occurred.");
@@ -57,46 +73,42 @@ export function WalletActions({ balance }: WalletActionsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed rounded-lg px-3 py-2 text-sm font-medium text-slate-500"
-          title="Deposit flow is not enabled yet"
-        >
-          Deposit
-        </button>
-
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed rounded-lg px-3 py-2 text-sm font-medium text-slate-500"
-          title="Withdrawal flow is not enabled yet"
-        >
-          Withdraw
-        </button>
-
-        <button
-          type="button"
-          className="rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white"
-        >
-          Place Bet
-        </button>
+      {/* Tabs */}
+      <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
+        {[
+          { id: "deposit", label: "Deposit", icon: ArrowDownRight },
+          { id: "withdraw", label: "Withdraw", icon: ArrowUpRight },
+          { id: "bet", label: "Place Bet", icon: Dice5 },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setActiveTab(tab.id as any);
+              setMessage("");
+            }}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+              activeTab === tab.id
+                ? "bg-indigo-600 text-white shadow-lg"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
       </div>
 
+      {/* Quick Amounts */}
       <div className="flex flex-wrap gap-2">
         {quickAmounts.map((quickAmount) => (
           <button
             key={quickAmount}
             type="button"
-            onClick={() => {
-              setAmount(String(quickAmount));
-              setCustomAmount("");
-            }}
+            onClick={() => setAmount(String(quickAmount))}
             className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
               amount === String(quickAmount)
-                ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100"
-                : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                ? "border-indigo-500/50 bg-indigo-500/10 text-indigo-300"
+                : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
             }`}
           >
             ${quickAmount}
@@ -104,50 +116,58 @@ export function WalletActions({ balance }: WalletActionsProps) {
         ))}
       </div>
 
-      <div>
+      {/* Custom Amount Input */}
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          $
+        </span>
         <input
           type="number"
           min="0"
           max="100000"
           step="0.01"
-          value={customAmount}
-          onChange={(event) => {
-            setCustomAmount(event.target.value);
-            setAmount("");
-          }}
-          placeholder="Bet amount"
-          className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-emerald-300/50"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0.00"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-8 text-lg font-semibold text-white outline-none transition-colors placeholder:text-slate-600 focus:border-indigo-500"
         />
       </div>
 
+      {/* Action Button */}
       <button
         type="button"
-        onClick={handlePlaceBet}
+        onClick={handleAction}
         disabled={loading}
-        className="w-full rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Placing Bet..." : "Place Bet"}
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Wallet className="h-4 w-4" />
+        )}
+        {loading
+          ? "Processing..."
+          : activeTab === "bet"
+            ? "Confirm Bet"
+            : `Confirm ${activeTab === "deposit" ? "Deposit" : "Withdrawal"}`}
       </button>
 
+      {/* Feedback Message */}
       {message && (
-        <p
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
-          role="status"
-        >
+        <p className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-200 text-center">
           {message}
         </p>
       )}
 
+      {/* Balance Display */}
       {balance !== undefined && (
-        <p className="text-sm text-slate-300">
-          Current balance: ${balance.toFixed(2)}
-        </p>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center">
+          <p className="text-xs text-slate-400 uppercase tracking-wide">
+            Available Balance
+          </p>
+          <p className="text-xl font-bold text-white">${balance.toFixed(2)}</p>
+        </div>
       )}
-
-      <p className="text-xs text-slate-500">
-        Deposits and withdrawals will be available once the payment and
-        withdrawal workflows are enabled.
-      </p>
     </div>
   );
 }

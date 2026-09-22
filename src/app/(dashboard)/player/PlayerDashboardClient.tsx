@@ -1,7 +1,8 @@
 "use client";
 
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Dice5 } from "lucide-react"; // Add this if not already there
 import { useEffect, useMemo } from "react";
-
 import { WalletActions } from "@/components/wallet/WalletActions";
 import { createClient } from "@/lib/supabase/client";
 import { useWalletStore } from "@/store/wallet-store";
@@ -201,9 +202,7 @@ export function PlayerDashboardClient({
         <div className="glass rounded-2xl p-6">
           <h2 className="text-sm text-slate-300">Open Wagers</h2>
           <p className="mt-2 text-3xl font-semibold">{wagerStats.pending}</p>
-          <p className="mt-2 text-xs text-slate-400">
-            Waiting for settlement.
-          </p>
+          <p className="mt-2 text-xs text-slate-400">Waiting for settlement.</p>
         </div>
 
         <div className="glass rounded-2xl p-6">
@@ -274,7 +273,9 @@ export function PlayerDashboardClient({
                         Payout
                       </p>
                       <p className="mt-1 font-medium">
-                      {wager.status === "pending" ? "\u2014" : formatCurrency(wager.payout)}
+                        {wager.status === "pending"
+                          ? "\u2014"
+                          : formatCurrency(wager.payout)}
                       </p>
                     </div>
 
