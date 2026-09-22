@@ -42,11 +42,21 @@ export default async function SuperAdminPage() {
     .select("*", { count: "exact", head: true })
     .eq("is_active", false);
 
-  const { data: recentUsers } = await supabase
+  // ️ BULLETPROOF FETCH: Use select("*") to avoid missing column errors
+  const { data: recentUsers, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role, is_active, created_at")
+    .select("*")
     .order("created_at", { ascending: false })
     .limit(50);
+
+  // 🔍 DEBUG LOGGING: Check your terminal to see exactly what the database returns
+  if (error) {
+    console.error("🚨 Supabase Error fetching users:", error.message);
+  } else {
+    console.log(
+      `✅ Successfully fetched ${recentUsers?.length || 0} users for the table.`,
+    );
+  }
 
   const stats = [
     {
