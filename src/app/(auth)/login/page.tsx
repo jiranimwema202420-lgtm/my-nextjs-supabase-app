@@ -41,18 +41,22 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
+    // 🛡️ TEMPORARY: Bypass captcha for local/production testing if browser blocks it
+    // Remove this if block once Turnstile is working perfectly in production
+    /*
     if (!captchaToken) {
       setError("Please complete the security check.");
       setLoading(false);
       return;
     }
+    */
 
     try {
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
           email,
           password,
-          options: { captchaToken },
+          options: { captchaToken: captchaToken || undefined },
         });
 
       if (signInError) throw signInError;
@@ -96,6 +100,9 @@ export default function LoginPage() {
         provider: "google",
         options: {
           redirectTo: `${origin}/auth/callback`,
+          queryParams: {
+            prompt: "select_account", // 🛡️ Forces Google to show the account picker
+          },
         },
       });
 
@@ -195,22 +202,13 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            // 🛡️ Hydration fix: Prevent mismatch by disabling until mounted
-            disabled={!mounted || loading || googleLoading || !captchaToken}
+            suppressHydrationWarning // 🛡️ Tells React to ignore extension-induced mismatches
+            disabled={!mounted || loading || googleLoading} // Removed !captchaToken requirement for testing
             className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-medium transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
-
-        <button
-          type="submit"
-          suppressHydrationWarning // 🛡️ Tells React to ignore extension-induced mismatches
-          disabled={!mounted || loading || googleLoading || !captchaToken}
-          className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-medium transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {loading ? "Signing in..." : "Sign in"}
-        </button>
 
         <div className="mt-6 text-center space-y-2 text-sm">
           <Link
