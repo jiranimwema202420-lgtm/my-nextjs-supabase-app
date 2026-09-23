@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { placeBet } from "@/lib/actions/wallet-actions";
+import { useRouter } from "next/navigation";
+import {
+  placeBet,
+  depositFunds,
+  withdrawFunds,
+} from "@/lib/actions/wallet-actions";
 import {
   Wallet,
   ArrowUpRight,
@@ -15,6 +20,7 @@ interface WalletActionsProps {
 }
 
 export function WalletActions({ balance }: WalletActionsProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw" | "bet">(
     "bet",
   );
@@ -33,35 +39,47 @@ export function WalletActions({ balance }: WalletActionsProps) {
       return;
     }
 
-    if (activeTab === "bet") {
-      if (targetAmount > 100000) {
-        setMessage("Maximum bet amount is $100,000.");
-        return;
-      }
-      if (balance !== undefined && targetAmount > balance) {
-        setMessage("Insufficient balance to place this bet.");
-        return;
-      }
+    if (targetAmount > 100000) {
+      setMessage("Amount too large.");
+      return;
+    }
+
+    // Client-side guard for bets and withdrawals
+    if (
+      (activeTab === "bet" || activeTab === "withdraw") &&
+      balance !== undefined &&
+      targetAmount > balance
+    ) {
+      setMessage("Insufficient balance.");
+      return;
     }
 
     setLoading(true);
 
     try {
+      let result: { success?: boolean; error?: string };
+
       if (activeTab === "bet") {
-        const result = await placeBet(targetAmount);
-        if (result.error) {
-          setMessage(result.error);
-        } else {
-          setMessage("Bet placed successfully!");
-          setAmount("");
-        }
+        result = await placeBet(targetAmount);
+      } else if (activeTab === "deposit") {
+        result = await depositFunds(targetAmount);
       } else {
-        // Mock deposit/withdraw flow
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        result = await withdrawFunds(targetAmount);
+      }
+
+      if (result.error) {
+        setMessage(result.error);
+      } else {
         setMessage(
-          `${activeTab === "deposit" ? "Deposit" : "Withdrawal"} of $${targetAmount.toFixed(2)} processed successfully!`,
+          activeTab === "bet"
+            ? "Bet placed successfully!"
+            : activeTab === "deposit"
+              ? `Deposit of $${targetAmount.toFixed(2)} processed successfully!`
+              : `Withdrawal of $${targetAmount.toFixed(2)} processed successfully!`,
         );
         setAmount("");
+        // Refresh server data so the Transaction Ledger updates instantly
+        router.refresh();
       }
     } catch (error) {
       console.error("[WalletActions]", error);
@@ -83,7 +101,7 @@ export function WalletActions({ balance }: WalletActionsProps) {
           <button
             key={tab.id}
             onClick={() => {
-              setActiveTab(tab.id as any);
+              setActiveTab(tab.id as "deposit" | "withdraw" | "bet");
               setMessage("");
             }}
             className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${

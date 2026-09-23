@@ -11,10 +11,7 @@ export default async function PlayerPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -28,14 +25,20 @@ export default async function PlayerPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  if (!profile) {
-    redirect("/login");
-  }
+  // 🆕 Fetch Transaction Ledger
+  const { data: transactions } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (!profile) redirect("/login");
 
   return (
     <PlayerDashboardClient
       initialProfile={profile as UserProfile}
       initialWagers={(wagers as Wager[]) || []}
+      initialTransactions={(transactions as any[]) || []}
     />
   );
 }
