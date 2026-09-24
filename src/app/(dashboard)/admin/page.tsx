@@ -56,6 +56,19 @@ export default async function AdminPage() {
     console.error("🚨 Supabase Error fetching admin users:", error.message);
   }
 
+  // 🛡️ Fetch Live Compliance Data (Joined with User Emails for UI)
+  const { data: kycDocs } = await supabase
+    .from("kyc_documents")
+    .select("*, profiles(id, email)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  const { data: flaggedTxs } = await supabase
+    .from("transactions")
+    .select("*, profiles(id, email)")
+    .eq("is_flagged", true)
+    .order("created_at", { ascending: false });
+
   const stats = [
     {
       label: "Total Players",
@@ -137,7 +150,10 @@ export default async function AdminPage() {
             Compliance & Approvals
           </h2>
         </div>
-        <ComplianceAndApprovals />
+        <ComplianceAndApprovals
+          initialKycDocs={kycDocs || []}
+          initialFlaggedTxs={flaggedTxs || []}
+        />
       </div>
     </div>
   );
