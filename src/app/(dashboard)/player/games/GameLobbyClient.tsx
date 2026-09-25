@@ -14,9 +14,10 @@ import {
   Trophy,
   Skull,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 
-const ICONS: Record<Game["icon"], any> = {
+const ICONS: Record<Game["icon"], LucideIcon> = {
   dice: Dice5,
   coin: Coins,
   slots: Sparkles,

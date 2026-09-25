@@ -1,14 +1,15 @@
+import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "iGaming FinTech Glass Dashboard",
-  description: "Glassmorphism dashboard with Supabase RBAC."
+  description: "Glassmorphism dashboard with Supabase RBAC.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

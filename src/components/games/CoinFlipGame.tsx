@@ -20,8 +20,14 @@ export function CoinFlipGame({
 
   const handlePlay = async () => {
     const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt <= 0) { setError("Enter a valid amount."); return; }
-    if (amt > balance) { setError("Insufficient balance."); return; }
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setError("Enter a valid amount.");
+      return;
+    }
+    if (amt > balance) {
+      setError("Insufficient balance.");
+      return;
+    }
     setError("");
     setLandedSide(null);
     setPlaying(true);
@@ -66,8 +72,15 @@ export function CoinFlipGame({
             }`}
             style={{
               transformStyle: "preserve-3d",
-              transform: landedSide === "tails" && !spinning ? "rotateY(180deg)" : "rotateY(0deg)",
-              transition: spinning ? "none" : "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              // ✅ FIX: Remove transform constraint while spinning so CSS animation can take over
+              transform: spinning
+                ? undefined
+                : landedSide === "tails"
+                  ? "rotateY(180deg)"
+                  : "rotateY(0deg)",
+              transition: spinning
+                ? "none"
+                : "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
             {/* Heads (front) */}
@@ -76,15 +89,22 @@ export function CoinFlipGame({
               style={{ backfaceVisibility: "hidden" }}
             >
               <Coins className="h-20 w-20 text-amber-900/80" />
-              <span className="mt-2 text-xs font-bold uppercase tracking-widest text-amber-900/80">Heads</span>
+              <span className="mt-2 text-xs font-bold uppercase tracking-widest text-amber-900/80">
+                Heads
+              </span>
             </div>
             {/* Tails (back) */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-center rounded-full border-4 border-slate-300/50 bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 shadow-2xl shadow-slate-500/50"
-              style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+              style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+              }}
             >
               <Coins className="h-20 w-20 text-slate-700/80" />
-              <span className="mt-2 text-xs font-bold uppercase tracking-widest text-slate-700/80">Tails</span>
+              <span className="mt-2 text-xs font-bold uppercase tracking-widest text-slate-700/80">
+                Tails
+              </span>
             </div>
           </div>
         </div>
@@ -109,7 +129,11 @@ export function CoinFlipGame({
       </div>
 
       {/* Bet Amount */}
-      <BetControls amount={amount} setAmount={setAmount} balance={balance} disabled={playing} />
+      <BetControls
+        amount={amount}
+        setAmount={setAmount}
+        disabled={playing}
+      />
 
       {/* Play Button */}
       <button
@@ -121,16 +145,28 @@ export function CoinFlipGame({
         {playing ? "Flipping..." : `Flip for $${Number(amount) || 0}`}
       </button>
 
-      {error && <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">{error}</p>}
+      {error && (
+        <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-function BetControls({ amount, setAmount, balance, disabled }: any) {
+type BetControlsProps = {
+  amount: string;
+  setAmount: (value: string) => void;
+  disabled: boolean;
+};
+
+function BetControls({ amount, setAmount, disabled }: BetControlsProps) {
   const quick = [5, 10, 25, 100];
   return (
     <div>
-      <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-slate-400">Bet Amount</label>
+      <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-slate-400">
+        Bet Amount
+      </label>
       <div className="flex gap-2">
         {quick.map((q) => (
           <button
@@ -148,7 +184,9 @@ function BetControls({ amount, setAmount, balance, disabled }: any) {
         ))}
       </div>
       <div className="relative mt-3">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          $
+        </span>
         <input
           type="number"
           min="0"

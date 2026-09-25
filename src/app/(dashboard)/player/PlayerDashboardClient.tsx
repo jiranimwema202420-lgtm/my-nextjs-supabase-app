@@ -9,11 +9,12 @@ import { useWalletStore } from "@/store/wallet-store";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Dice5, Gamepad2 } from "lucide-react";
 import type { UserProfile, Wager } from "@/types/wager";
+import type { Transaction } from "@/components/player/TransactionLedger";
 
 type PlayerDashboardClientProps = {
   initialProfile: UserProfile;
   initialWagers: Wager[];
-  initialTransactions: any[];
+  initialTransactions: Transaction[];
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {

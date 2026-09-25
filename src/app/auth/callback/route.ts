@@ -1,11 +1,11 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getRoleDashboard } from "@/lib/rbac";
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const origin = requestUrl.origin;
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
 
   if (code) {
     const cookieStore = await cookies();
@@ -20,22 +20,22 @@ export async function GET(request: Request) {
           setAll(cookiesToSet) {
             try {
               cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
+                cookieStore.set(name, value, options),
               );
             } catch {
-              // Ignore errors when setting cookies in some edge cases
+              // Middleware handles server component setting
             }
           },
         },
-      }
+      },
     );
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // 🌟 NEW: Fetch the user's role to redirect to the correct dashboard
-      const { data: { user } } = await supabase.auth.getUser();
-      let next = "/player"; // Safe default
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
         const { data: profile } = await supabase
@@ -44,24 +44,22 @@ export async function GET(request: Request) {
           .eq("id", user.id)
           .single();
 
-        const role = profile?.role || "player";
-        const rolePaths: Record<string, string> = {
-          super_admin: "/super-admin",
-          admin: "/admin",
-          manager: "/manager",
-          staff: "/staff",
-          compliance: "/compliance",
-          analyst: "/analyst",
-          player: "/player",
-        };
-        
-        next = rolePaths[role] || "/player";
-      }
+        const targetRoute = getRoleDashboard(profile?.role);
+        const forwardedHost = request.headers.get("x-forwarded-host");
+        const isLocalEnv = process.env.NODE_ENV === "development";
 
-      return NextResponse.redirect(`${origin}${next}`);
+        if (isLocalEnv) {
+          return NextResponse.redirect(`${origin}${targetRoute}`);
+        } else if (forwardedHost) {
+          return NextResponse.redirect(
+            `https://${forwardedHost}${targetRoute}`,
+          );
+        } else {
+          return NextResponse.redirect(`${origin}${targetRoute}`);
+        }
+      }
     }
   }
 
-  // Redirect to login if OAuth code exchange fails or no code is present
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_error`);
+  return NextResponse.redirect(`${origin}/login?error=auth_code_error`);
 }

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PlayerDashboardClient } from "./PlayerDashboardClient";
 import type { UserProfile, Wager } from "@/types/wager";
+import type { Transaction } from "@/components/player/TransactionLedger";
 import { requireRole } from "@/lib/rbac/role-guard";
 
 export default async function PlayerPage() {
@@ -38,7 +39,7 @@ export default async function PlayerPage() {
     <PlayerDashboardClient
       initialProfile={profile as UserProfile}
       initialWagers={(wagers as Wager[]) || []}
-      initialTransactions={(transactions as any[]) || []}
+      initialTransactions={(transactions as Transaction[]) || []}
     />
   );
 }
