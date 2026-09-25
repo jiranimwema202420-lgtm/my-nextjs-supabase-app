@@ -3,13 +3,15 @@
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { WalletActions } from "@/components/wallet/WalletActions";
-import { TransactionLedger } from "@/components/player/TransactionLedger";
+import {
+  TransactionLedger,
+  type Transaction,
+} from "@/components/player/TransactionLedger";
 import { createClient } from "@/lib/supabase/client";
 import { useWalletStore } from "@/store/wallet-store";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Dice5, Gamepad2 } from "lucide-react";
 import type { UserProfile, Wager } from "@/types/wager";
-import type { Transaction } from "@/components/player/TransactionLedger";
 
 type PlayerDashboardClientProps = {
   initialProfile: UserProfile;
@@ -217,7 +219,7 @@ export function PlayerDashboardClient({
         </GlassCard>
       </div>
 
-      {/* 🆕 Game Lobby Entrance */}
+      {/* Game Lobby Entrance */}
       <Link href="/player/games" className="block">
         <GlassCard className="flex items-center justify-between p-6 transition-colors hover:bg-white/10 cursor-pointer">
           <div className="flex items-center gap-4">
