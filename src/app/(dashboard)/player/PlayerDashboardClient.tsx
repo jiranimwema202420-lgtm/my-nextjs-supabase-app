@@ -1,19 +1,17 @@
 "use client";
-"use client";
 
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { WalletActions } from "@/components/wallet/WalletActions";
-import { TransactionLedger } from "@/components/player/TransactionLedger";
+import {
+  TransactionLedger,
+  type Transaction,
+} from "@/components/player/TransactionLedger";
 import { createClient } from "@/lib/supabase/client";
 import { useWalletStore } from "@/store/wallet-store";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Dice5, Gamepad2 } from "lucide-react";
 import type { UserProfile, Wager } from "@/types/wager";
-import {
-  TransactionLedger,
-  type Transaction,
-} from "@/components/player/TransactionLedger";
 
 type PlayerDashboardClientProps = {
   initialProfile: UserProfile;
@@ -221,7 +219,7 @@ export function PlayerDashboardClient({
         </GlassCard>
       </div>
 
-      {/* 🆕 Game Lobby Entrance */}
+      {/* Game Lobby Entrance */}
       <Link href="/player/games" className="block">
         <GlassCard className="flex items-center justify-between p-6 transition-colors hover:bg-white/10 cursor-pointer">
           <div className="flex items-center gap-4">
@@ -316,24 +314,6 @@ export function PlayerDashboardClient({
           </div>
         </GlassCard>
       </div>
-
-      {/* Game Lobby Entrance */}
-      <Link href="/player/games" className="block">
-        <GlassCard className="flex items-center justify-between p-6 transition-colors hover:bg-white/10 cursor-pointer">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-fuchsia-500/10">
-              <Gamepad2 className="h-6 w-6 text-fuchsia-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-white">Game Lobby</p>
-              <p className="text-sm text-slate-400">
-                Lucky Dice, Coin Flip & Neon Slots — play now
-              </p>
-            </div>
-          </div>
-          <span className="text-sm font-medium text-indigo-300">Enter →</span>
-        </GlassCard>
-      </Link>
 
       {/* Transaction Ledger Section */}
       <TransactionLedger transactions={initialTransactions} />
