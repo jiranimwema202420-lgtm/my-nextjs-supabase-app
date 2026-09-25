@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
 
 // 1. Rewrite Sign Up Page
 fs.writeFileSync(

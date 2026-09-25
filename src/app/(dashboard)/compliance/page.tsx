@@ -49,6 +49,18 @@ export default async function CompliancePage() {
     .eq("role", "player")
     .eq("is_active", false);
 
+  const { data: kycDocs } = await supabase
+    .from("kyc_documents")
+    .select("*, profiles(id, email)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  const { data: flaggedTxs } = await supabase
+    .from("transactions")
+    .select("*, profiles(id, email)")
+    .eq("is_flagged", true)
+    .order("created_at", { ascending: false });
+
   // Mock data for demo purposes
   const stats = [
     {
@@ -192,7 +204,10 @@ export default async function CompliancePage() {
             KYC & Transaction Reviews
           </h2>
         </div>
-        <ComplianceAndApprovals />
+        <ComplianceAndApprovals
+          initialKycDocs={kycDocs || []}
+          initialFlaggedTxs={flaggedTxs || []}
+        />
       </div>
     </div>
   );

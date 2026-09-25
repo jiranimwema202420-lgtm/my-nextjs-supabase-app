@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-type Transaction = {
+export type Transaction = {
   id: string;
   type: "deposit" | "withdrawal" | "bet" | "payout" | "bonus" | "adjustment";
   amount: number;

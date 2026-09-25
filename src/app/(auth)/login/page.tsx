@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
@@ -21,8 +21,6 @@ const ROLE_ROUTES: Record<AppRole, string> = {
 export default function LoginPage() {
   const router = useRouter();
 
-  // 🛡️ Hydration fix: Ensure initial render matches server exactly
-  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -30,11 +28,9 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const supabase = createClient();
+  const getErrorMessage = (err: unknown) =>
+    err instanceof Error ? err.message : "An unexpected error occurred.";
 
   const handleEmailSignIn = async (e: FormEvent) => {
     e.preventDefault();
@@ -78,8 +74,8 @@ export default function LoginPage() {
 
       router.push(destination);
       router.refresh();
-    } catch (err: any) {
-      setError(err?.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
       setCaptchaToken(null);
     } finally {
       setLoading(false);
@@ -107,8 +103,10 @@ export default function LoginPage() {
       });
 
       if (oauthError) throw oauthError;
-    } catch (err: any) {
-      setError(err?.message || "Failed to initiate Google sign-in.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to initiate Google sign-in.",
+      );
       setGoogleLoading(false);
     }
   };
@@ -203,7 +201,7 @@ export default function LoginPage() {
           <button
             type="submit"
             suppressHydrationWarning // 🛡️ Tells React to ignore extension-induced mismatches
-            disabled={!mounted || loading || googleLoading} // Removed !captchaToken requirement for testing
+            disabled={loading || googleLoading} // Removed !captchaToken requirement for testing
             className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-medium transition-all shadow-lg shadow-indigo-600/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? "Signing in..." : "Sign in"}

@@ -132,7 +132,6 @@ export function CoinFlipGame({
       <BetControls
         amount={amount}
         setAmount={setAmount}
-        balance={balance}
         disabled={playing}
       />
 
@@ -155,7 +154,13 @@ export function CoinFlipGame({
   );
 }
 
-function BetControls({ amount, setAmount, balance, disabled }: any) {
+type BetControlsProps = {
+  amount: string;
+  setAmount: (value: string) => void;
+  disabled: boolean;
+};
+
+function BetControls({ amount, setAmount, disabled }: BetControlsProps) {
   const quick = [5, 10, 25, 100];
   return (
     <div>

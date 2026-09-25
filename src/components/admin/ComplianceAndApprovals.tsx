@@ -23,6 +23,45 @@ import {
 
 type RiskLevel = "High" | "Medium" | "Low";
 
+type KycRecord = {
+  id: string;
+  document_type: string;
+  country: string | null;
+  risk_level: RiskLevel | null;
+  status: string;
+  created_at: string;
+  document_url: string | null;
+  profiles?: {
+    email?: string | null;
+  } | null;
+};
+
+type FlaggedTransactionRecord = {
+  id: string;
+  amount: number | string;
+  reference_id: string | null;
+  risk_level: RiskLevel | null;
+  flag_reason: string | null;
+  created_at: string;
+  profiles?: {
+    email?: string | null;
+  } | null;
+};
+
+type ReviewListItem = {
+  id: string;
+  user: string;
+  riskLevel: RiskLevel;
+  submitted: string;
+  status?: string;
+  txHash?: string;
+  document?: string;
+  country?: string;
+  docUrl?: string;
+  amount?: string;
+  reason?: string;
+};
+
 // Helper to format dates like "2 hrs ago"
 function timeAgo(dateString: string) {
   const seconds = Math.floor(
@@ -37,21 +76,25 @@ function timeAgo(dateString: string) {
 export function ComplianceAndApprovals({
   initialKycDocs,
   initialFlaggedTxs,
-}: any) {
-  const [kycList, setKycList] = useState(initialKycDocs);
-  const [txList, setTxList] = useState(initialFlaggedTxs);
+}: {
+  initialKycDocs: KycRecord[];
+  initialFlaggedTxs: FlaggedTransactionRecord[];
+}) {
+  const [kycList, setKycList] = useState<KycRecord[]>(initialKycDocs);
+  const [txList, setTxList] =
+    useState<FlaggedTransactionRecord[]>(initialFlaggedTxs);
 
   const [activeTab, setActiveTab] = useState<"kyc" | "transactions">("kyc");
   const [riskFilter, setRiskFilter] = useState<"All" | RiskLevel>("All");
   const [isPending, startTransition] = useTransition();
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<ReviewListItem | null>(null);
   const [auditNote, setAuditNote] = useState("");
   const [error, setError] = useState("");
 
   // Map DB data to UI format
-  const mappedKyc = useMemo(
+  const mappedKyc: ReviewListItem[] = useMemo(
     () =>
-      kycList.map((d: any) => ({
+      kycList.map((d) => ({
         id: d.id,
         user: d.profiles?.email || "Unknown",
         document: d.document_type,
@@ -64,9 +107,9 @@ export function ComplianceAndApprovals({
     [kycList],
   );
 
-  const mappedTx = useMemo(
+  const mappedTx: ReviewListItem[] = useMemo(
     () =>
-      txList.map((t: any) => ({
+      txList.map((t) => ({
         id: t.id,
         user: t.profiles?.email || "Unknown",
         amount: `$${Number(t.amount).toFixed(2)}`,
@@ -82,14 +125,14 @@ export function ComplianceAndApprovals({
     () =>
       riskFilter === "All"
         ? mappedKyc
-        : mappedKyc.filter((k: any) => k.riskLevel === riskFilter),
+        : mappedKyc.filter((k) => k.riskLevel === riskFilter),
     [mappedKyc, riskFilter],
   );
   const filteredTx = useMemo(
     () =>
       riskFilter === "All"
         ? mappedTx
-        : mappedTx.filter((t: any) => t.riskLevel === riskFilter),
+        : mappedTx.filter((t) => t.riskLevel === riskFilter),
     [mappedTx, riskFilter],
   );
 
@@ -109,8 +152,8 @@ export function ComplianceAndApprovals({
       if (result.success) {
         // Optimistically remove from UI
         if (activeTab === "kyc")
-          setKycList((prev: any) => prev.filter((k: any) => k.id !== id));
-        else setTxList((prev: any) => prev.filter((t: any) => t.id !== id));
+          setKycList((prev) => prev.filter((k) => k.id !== id));
+        else setTxList((prev) => prev.filter((t) => t.id !== id));
         setSelectedItem(null);
         setAuditNote("");
       } else {
@@ -177,7 +220,7 @@ export function ComplianceAndApprovals({
             No items match this filter.
           </p>
         ) : (
-          (activeTab === "kyc" ? filteredKyc : filteredTx).map((item: any) => (
+          (activeTab === "kyc" ? filteredKyc : filteredTx).map((item) => (
             <div
               key={item.id}
               onClick={() => setSelectedItem(item)}

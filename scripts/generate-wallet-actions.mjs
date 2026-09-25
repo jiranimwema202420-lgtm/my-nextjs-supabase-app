@@ -358,7 +358,5 @@ console.log(
 );
 
 console.log("Wallet Actions injection complete.");
-`,
-);
 
 console.log("Wallet actions generation complete.");

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { playGame, type GameResult } from "@/lib/actions/game-actions";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const SYMBOLS = ["🍒", "🍋", "🔔", "⭐", "💎", "7️⃣"];
 
@@ -132,7 +132,7 @@ export function SlotsGame({
       </div>
 
       {/* Bet Amount */}
-      <BetControls amount={amount} setAmount={setAmount} balance={balance} disabled={playing} />
+      <BetControls amount={amount} setAmount={setAmount} disabled={playing} />
 
       {/* Play Button */}
       <button
@@ -149,7 +149,13 @@ export function SlotsGame({
   );
 }
 
-function BetControls({ amount, setAmount, balance, disabled }: any) {
+type BetControlsProps = {
+  amount: string;
+  setAmount: (value: string) => void;
+  disabled: boolean;
+};
+
+function BetControls({ amount, setAmount, disabled }: BetControlsProps) {
   const quick = [5, 10, 25, 100];
   return (
     <div>
