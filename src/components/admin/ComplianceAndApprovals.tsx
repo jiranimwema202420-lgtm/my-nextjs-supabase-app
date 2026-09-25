@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import {
+  reviewKycDocument,
+  reviewTransactionFlag,
+} from "@/lib/actions/compliance-actions";
 import {
   FileText,
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Shield,
   DollarSign,
   Loader2,
   Eye,
@@ -18,108 +21,109 @@ import {
   Globe,
 } from "lucide-react";
 
-// --- Enhanced Mock Data ---
 type RiskLevel = "High" | "Medium" | "Low";
 
-const MOCK_KYC_REQUESTS = [
-  {
-    id: "kyc-1",
-    user: "john.doe@example.com",
-    document: "Passport",
-    country: "United Kingdom",
-    riskLevel: "High" as RiskLevel,
-    status: "Pending",
-    submitted: "2 hrs ago",
-    docUrl: "#",
-  },
-  {
-    id: "kyc-2",
-    user: "jane.smith@example.com",
-    document: "Driver's License",
-    country: "United States",
-    riskLevel: "Medium" as RiskLevel,
-    status: "Pending",
-    submitted: "5 hrs ago",
-    docUrl: "#",
-  },
-  {
-    id: "kyc-3",
-    user: "carlos.ruiz@example.com",
-    document: "National ID",
-    country: "Spain",
-    riskLevel: "Low" as RiskLevel,
-    status: "Pending",
-    submitted: "1 day ago",
-    docUrl: "#",
-  },
-];
+// Helper to format dates like "2 hrs ago"
+function timeAgo(dateString: string) {
+  const seconds = Math.floor(
+    (new Date().getTime() - new Date(dateString).getTime()) / 1000,
+  );
+  if (seconds < 60) return `${seconds} sec ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hrs ago`;
+  return `${Math.floor(seconds / 86400)} days ago`;
+}
 
-const MOCK_TRANSACTION_FLAGS = [
-  {
-    id: "tx-1",
-    user: "high.roller@example.com",
-    amount: "$15,000.00",
-    txHash: "0x7a8b9c...1d2e3f",
-    riskLevel: "High" as RiskLevel,
-    reason: "Unusual deposit size (exceeds 24h average by 400%)",
-    submitted: "1 hr ago",
-  },
-  {
-    id: "tx-2",
-    user: "new.player@example.com",
-    amount: "$500.00",
-    txHash: "0x4f5g6h...7i8j9k",
-    riskLevel: "Medium" as RiskLevel,
-    reason: "First time deposit from high-risk jurisdiction",
-    submitted: "3 hrs ago",
-  },
-];
+export function ComplianceAndApprovals({
+  initialKycDocs,
+  initialFlaggedTxs,
+}: any) {
+  const [kycList, setKycList] = useState(initialKycDocs);
+  const [txList, setTxList] = useState(initialFlaggedTxs);
 
-export function ComplianceAndApprovals() {
   const [activeTab, setActiveTab] = useState<"kyc" | "transactions">("kyc");
   const [riskFilter, setRiskFilter] = useState<"All" | RiskLevel>("All");
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [auditNote, setAuditNote] = useState("");
+  const [error, setError] = useState("");
 
-  // Filter logic
-  const filteredKyc = useMemo(() => {
-    if (riskFilter === "All") return MOCK_KYC_REQUESTS;
-    return MOCK_KYC_REQUESTS.filter((k) => k.riskLevel === riskFilter);
-  }, [riskFilter]);
+  // Map DB data to UI format
+  const mappedKyc = useMemo(
+    () =>
+      kycList.map((d: any) => ({
+        id: d.id,
+        user: d.profiles?.email || "Unknown",
+        document: d.document_type,
+        country: d.country || "Unknown",
+        riskLevel: (d.risk_level || "Medium") as RiskLevel,
+        status: d.status,
+        submitted: timeAgo(d.created_at),
+        docUrl: d.document_url || "#",
+      })),
+    [kycList],
+  );
 
-  const filteredTx = useMemo(() => {
-    if (riskFilter === "All") return MOCK_TRANSACTION_FLAGS;
-    return MOCK_TRANSACTION_FLAGS.filter((t) => t.riskLevel === riskFilter);
-  }, [riskFilter]);
+  const mappedTx = useMemo(
+    () =>
+      txList.map((t: any) => ({
+        id: t.id,
+        user: t.profiles?.email || "Unknown",
+        amount: `$${Number(t.amount).toFixed(2)}`,
+        txHash: t.reference_id ? t.reference_id.slice(0, 8) + "..." : "N/A",
+        riskLevel: (t.risk_level || "Medium") as RiskLevel,
+        reason: t.flag_reason || "Flagged by system",
+        submitted: timeAgo(t.created_at),
+      })),
+    [txList],
+  );
 
-  const handleAction = async (
-    id: string,
-    action: "approve" | "reject" | "flag",
-  ) => {
+  const filteredKyc = useMemo(
+    () =>
+      riskFilter === "All"
+        ? mappedKyc
+        : mappedKyc.filter((k: any) => k.riskLevel === riskFilter),
+    [mappedKyc, riskFilter],
+  );
+  const filteredTx = useMemo(
+    () =>
+      riskFilter === "All"
+        ? mappedTx
+        : mappedTx.filter((t: any) => t.riskLevel === riskFilter),
+    [mappedTx, riskFilter],
+  );
+
+  const handleAction = async (id: string, action: "approve" | "reject") => {
     if (!auditNote.trim()) {
-      alert("Please add an audit note before taking action.");
+      setError("Please add an audit note.");
       return;
     }
+    setError("");
 
-    setProcessingId(id);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log(`${action.toUpperCase()}D: ${id} | Note: ${auditNote}`);
+    startTransition(async () => {
+      const result =
+        activeTab === "kyc"
+          ? await reviewKycDocument(id, action, auditNote)
+          : await reviewTransactionFlag(id, action, auditNote);
 
-    setProcessingId(null);
-    setSelectedItem(null);
-    setAuditNote("");
+      if (result.success) {
+        // Optimistically remove from UI
+        if (activeTab === "kyc")
+          setKycList((prev: any) => prev.filter((k: any) => k.id !== id));
+        else setTxList((prev: any) => prev.filter((t: any) => t.id !== id));
+        setSelectedItem(null);
+        setAuditNote("");
+      } else {
+        setError(result.error || "Failed to process.");
+      }
+    });
   };
 
   const getRiskColor = (risk: RiskLevel) => {
-    switch (risk) {
-      case "High":
-        return "bg-red-500/10 text-red-400 border-red-500/20";
-      case "Medium":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-      case "Low":
-        return "bg-green-500/10 text-green-400 border-green-500/20";
-    }
+    if (risk === "High") return "bg-red-500/10 text-red-400 border-red-500/20";
+    if (risk === "Medium")
+      return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    return "bg-green-500/10 text-green-400 border-green-500/20";
   };
 
   return (
@@ -131,16 +135,11 @@ export function ComplianceAndApprovals() {
             setActiveTab("kyc");
             setRiskFilter("All");
           }}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "kyc"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-white"
-          }`}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === "kyc" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-white"}`}
         >
-          <FileText className="h-4 w-4" />
-          KYC Document Reviews
+          <FileText className="h-4 w-4" /> KYC Reviews{" "}
           <span className="ml-1 rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300">
-            {MOCK_KYC_REQUESTS.length}
+            {mappedKyc.length}
           </span>
         </button>
         <button
@@ -148,143 +147,97 @@ export function ComplianceAndApprovals() {
             setActiveTab("transactions");
             setRiskFilter("All");
           }}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "transactions"
-              ? "border-amber-500 text-amber-400"
-              : "border-transparent text-slate-400 hover:text-white"
-          }`}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === "transactions" ? "border-amber-500 text-amber-400" : "border-transparent text-slate-400 hover:text-white"}`}
         >
-          <AlertTriangle className="h-4 w-4" />
-          Transaction Flags
+          <AlertTriangle className="h-4 w-4" /> Transaction Flags{" "}
           <span className="ml-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
-            {MOCK_TRANSACTION_FLAGS.length}
+            {mappedTx.length}
           </span>
         </button>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filters */}
       <div className="flex items-center gap-2">
         <Filter className="h-4 w-4 text-slate-500" />
         {(["All", "High", "Medium", "Low"] as const).map((level) => (
           <button
             key={level}
             onClick={() => setRiskFilter(level)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-              riskFilter === level
-                ? "bg-white/10 text-white border border-white/20"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${riskFilter === level ? "bg-white/10 text-white border border-white/20" : "text-slate-400 hover:text-white hover:bg-white/5"}`}
           >
             {level} Risk
           </button>
         ))}
       </div>
 
-      {/* KYC Tab Content */}
-      {activeTab === "kyc" && (
-        <div className="space-y-3">
-          {filteredKyc.length === 0 ? (
-            <p className="text-center text-sm text-slate-500 py-8">
-              No pending KYC reviews for this filter.
-            </p>
-          ) : (
-            filteredKyc.map((req) => (
-              <div
-                key={req.id}
-                onClick={() => setSelectedItem(req)}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 cursor-pointer hover:bg-white/10 transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+      {/* Lists */}
+      <div className="space-y-3">
+        {(activeTab === "kyc" ? filteredKyc : filteredTx).length === 0 ? (
+          <p className="text-center text-sm text-slate-500 py-8">
+            No items match this filter.
+          </p>
+        ) : (
+          (activeTab === "kyc" ? filteredKyc : filteredTx).map((item: any) => (
+            <div
+              key={item.id}
+              onClick={() => setSelectedItem(item)}
+              className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 cursor-pointer hover:bg-white/10 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ${activeTab === "kyc" ? "bg-blue-500/10" : item.riskLevel === "High" ? "bg-red-500/10" : "bg-amber-500/10"}`}
+                >
+                  {activeTab === "kyc" ? (
                     <FileText className="h-5 w-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-white">{req.user}</p>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(req.riskLevel)}`}
-                      >
-                        {req.riskLevel.toUpperCase()} RISK
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 flex items-center gap-2 mt-1">
-                      <Globe className="h-3 w-3" /> {req.country} •{" "}
-                      {req.document} • <Clock className="h-3 w-3" />{" "}
-                      {req.submitted}
-                    </p>
-                  </div>
-                </div>
-                <Eye className="h-4 w-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Transactions Tab Content */}
-      {activeTab === "transactions" && (
-        <div className="space-y-3">
-          {filteredTx.length === 0 ? (
-            <p className="text-center text-sm text-slate-500 py-8">
-              No flagged transactions for this filter.
-            </p>
-          ) : (
-            filteredTx.map((tx) => (
-              <div
-                key={tx.id}
-                onClick={() => setSelectedItem(tx)}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 cursor-pointer hover:bg-white/10 transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full ${tx.riskLevel === "High" ? "bg-red-500/10" : "bg-amber-500/10"}`}
-                  >
+                  ) : (
                     <DollarSign
-                      className={`h-5 w-5 ${tx.riskLevel === "High" ? "text-red-400" : "text-amber-400"}`}
+                      className={`h-5 w-5 ${item.riskLevel === "High" ? "text-red-400" : "text-amber-400"}`}
                     />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-white">{tx.user}</p>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(tx.riskLevel)}`}
-                      >
-                        {tx.riskLevel.toUpperCase()} RISK
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Amount:{" "}
-                      <span className="text-white font-medium">
-                        {tx.amount}
-                      </span>{" "}
-                      • {tx.reason}
-                    </p>
-                  </div>
+                  )}
                 </div>
-                <Eye className="h-4 w-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-white">{item.user}</p>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(item.riskLevel)}`}
+                    >
+                      {item.riskLevel.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 flex items-center gap-2 mt-1">
+                    {activeTab === "kyc" ? (
+                      <>
+                        <Globe className="h-3 w-3" /> {item.country} •{" "}
+                        {item.document}
+                      </>
+                    ) : (
+                      <>
+                        Amount: {item.amount} • {item.reason}
+                      </>
+                    )}{" "}
+                    • <Clock className="h-3 w-3" /> {item.submitted}
+                  </p>
+                </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
+              <Eye className="h-4 w-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+            </div>
+          ))
+        )}
+      </div>
 
-      {/* Detail & Action Modal */}
+      {/* Modal */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                {activeTab === "kyc" ? (
-                  <FileText className="h-5 w-5 text-blue-400" />
-                ) : (
-                  <DollarSign className="h-5 w-5 text-amber-400" />
-                )}
+              <h3 className="text-lg font-semibold text-white">
                 Review Details
               </h3>
               <button
                 onClick={() => {
                   setSelectedItem(null);
                   setAuditNote("");
+                  setError("");
                 }}
                 className="text-slate-400 hover:text-white"
               >
@@ -292,57 +245,40 @@ export function ComplianceAndApprovals() {
               </button>
             </div>
 
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-400">User:</span>
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-slate-400">User:</span>{" "}
                 <span className="text-white font-medium">
                   {selectedItem.user}
                 </span>
-              </div>
+              </p>
               {activeTab === "kyc" ? (
                 <>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Document:</span>
+                  <p>
+                    <span className="text-slate-400">Document:</span>{" "}
                     <span className="text-white">{selectedItem.document}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Country:</span>
+                  </p>
+                  <p>
+                    <span className="text-slate-400">Country:</span>{" "}
                     <span className="text-white">{selectedItem.country}</span>
-                  </div>
+                  </p>
                 </>
               ) : (
                 <>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Amount:</span>
+                  <p>
+                    <span className="text-slate-400">Amount:</span>{" "}
                     <span className="text-white font-medium">
                       {selectedItem.amount}
                     </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Tx Hash:</span>
-                    <span className="text-white font-mono text-xs">
-                      {selectedItem.txHash}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Reason:</span>
-                    <span className="text-white text-right max-w-[200px]">
-                      {selectedItem.reason}
-                    </span>
-                  </div>
+                  </p>
+                  <p>
+                    <span className="text-slate-400">Reason:</span>{" "}
+                    <span className="text-white">{selectedItem.reason}</span>
+                  </p>
                 </>
               )}
-              <div className="flex justify-between">
-                <span className="text-slate-400">Risk Level:</span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRiskColor(selectedItem.riskLevel)}`}
-                >
-                  {selectedItem.riskLevel.toUpperCase()}
-                </span>
-              </div>
             </div>
 
-            {/* Audit Notes */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs font-medium text-slate-300">
                 <MessageSquare className="h-3.5 w-3.5" /> Mandatory Audit Note
@@ -350,35 +286,35 @@ export function ComplianceAndApprovals() {
               <textarea
                 value={auditNote}
                 onChange={(e) => setAuditNote(e.target.value)}
-                placeholder="e.g., Document verified against national database. No discrepancies found."
-                className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-indigo-500 min-h-[80px] resize-none"
+                placeholder="e.g., Verified against national database."
+                className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-indigo-500 min-h-[80px] resize-none"
               />
+              {error && <p className="text-xs text-red-400">{error}</p>}
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => handleAction(selectedItem.id, "reject")}
-                disabled={processingId === selectedItem.id}
+                disabled={isPending}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50"
               >
-                {processingId === selectedItem.id ? (
+                {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <XCircle className="h-4 w-4" />
-                )}
+                )}{" "}
                 Reject
               </button>
               <button
                 onClick={() => handleAction(selectedItem.id, "approve")}
-                disabled={processingId === selectedItem.id}
+                disabled={isPending}
                 className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 py-2.5 text-sm font-medium text-green-400 hover:bg-green-500/20 disabled:opacity-50"
               >
-                {processingId === selectedItem.id ? (
+                {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <CheckCircle className="h-4 w-4" />
-                )}
+                )}{" "}
                 Approve
               </button>
             </div>
