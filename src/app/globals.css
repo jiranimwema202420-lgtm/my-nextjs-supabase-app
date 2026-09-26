@@ -184,3 +184,44 @@ body {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+
+/* ============ ANIMATION UTILITY CLASSES ============ */
+.animate-coin-spin {
+  animation: coin-spin 1.8s cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.animate-dice-shake {
+  animation: dice-shake 0.15s infinite;
+}
+
+.animate-slots-blur {
+  animation: slots-blur 0.2s infinite;
+}
+
+@keyframes slots-blur {
+  0% {
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+    filter: blur(2px);
+  }
+  100% {
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+
+/* TEMPORARY: Commenting out reduced-motion to test if animations work at all */
+/*
+@media (prefers-reduced-motion: reduce) {
+  .animate-coin-spin,
+  .animate-dice-shake,
+  .animate-slots-blur {
+    animation: none;
+  }
+}
+*/
