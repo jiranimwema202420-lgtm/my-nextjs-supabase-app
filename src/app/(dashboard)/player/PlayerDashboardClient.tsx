@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { WalletActions } from "@/components/wallet/WalletActions";
+import { StripePaymentPanel } from "@/components/wallet/StripePaymentPanel";
 import {
   TransactionLedger,
   type Transaction,
@@ -314,6 +315,11 @@ export function PlayerDashboardClient({
           </div>
         </GlassCard>
       </div>
+
+      {/* Stripe Payments Panel */}
+      <GlassCard>
+        <StripePaymentPanel balance={balance} />
+      </GlassCard>
 
       {/* Transaction Ledger Section */}
       <TransactionLedger transactions={initialTransactions} />
